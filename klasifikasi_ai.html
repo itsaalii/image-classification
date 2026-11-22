@@ -82,7 +82,7 @@
                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
               </span>
-              Extra Trees (48 Fitur) &bull; Akurasi CV 92.33%
+              Weighted Soft Voting (38 Fitur) &bull; Akurasi CV 93.00%
             </span>
           </div>
           <p class="text-xs sm:text-sm text-emerald-900/65 mt-0.5">Analisis keteraturan penataan susunan sepatu: <strong>Rapi vs Berantakan</strong></p>
@@ -125,7 +125,7 @@
               <p id="input-panel-subtitle" class="text-xs text-emerald-900/65 mt-0.5">Unggah foto penataan sepatu untuk mendeteksi apakah susunan rapi atau berantakan.</p>
             </div>
             <span id="input-mode-badge" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-gradient-to-r from-emerald-100 to-lime-100/80 text-emerald-800 border border-emerald-200/80 shrink-0">
-              Extra Trees (48 Fitur)
+              Weighted Soft Voting (38 Fitur)
             </span>
           </div>
 
@@ -139,7 +139,7 @@
               <input
                 id="image-file-input"
                 type="file"
-                accept="image/jpeg,image/png,image/webp"
+                accept="image/jpeg,image/png,image/webp,image/bmp"
                 class="hidden"
               />
 
@@ -152,7 +152,7 @@
                   <p class="text-sm sm:text-base font-semibold text-emerald-950">
                     Tarik &amp; lepas foto sepatu di sini, atau <span class="text-emerald-600 underline decoration-emerald-400 underline-offset-2">pilih file</span>
                   </p>
-                  <p class="text-xs text-emerald-800/60 mt-1.5">Mendukung format JPG, PNG, atau WEBP (maks. 5 MB)</p>
+                  <p class="text-xs text-emerald-800/60 mt-1.5">Mendukung format gambar JPG, PNG, WEBP, atau BMP</p>
                 </div>
               </div>
 
@@ -301,8 +301,8 @@
             <div class="absolute inset-0 rounded-2xl border-4 border-emerald-600 border-t-lime-400 animate-spin"></div>
             <i data-lucide="brain-circuit" class="w-7 h-7 text-emerald-600 animate-pulse"></i>
           </div>
-          <h3 class="text-sm font-bold text-emerald-950">Menganalisis 48 Fitur Multimodal...</h3>
-          <p id="loading-subtext" class="text-xs text-emerald-800/70 mt-1">Mengekstrak GLCM CLAHE, Tepi Canny, HOG, dan SIFT BoVW</p>
+          <h3 class="text-sm font-bold text-emerald-950">Menganalisis 38 Fitur Multimodal...</h3>
+          <p id="loading-subtext" class="text-xs text-emerald-800/70 mt-1">Mengekstrak GLCM CLAHE, Tepi Canny, dan SIFT BoVW</p>
           <div class="w-52 h-2 bg-emerald-100 rounded-full overflow-hidden mt-4 border border-emerald-200/70">
             <div class="h-full bg-gradient-to-r from-emerald-600 via-green-500 to-lime-400 rounded-full animate-pulse w-3/4"></div>
           </div>
@@ -342,7 +342,7 @@
               </span>
               <span id="res-mode-info" class="inline-flex items-center gap-1.5 text-emerald-900/75 font-medium">
                 <i data-lucide="layers" class="w-3.5 h-3.5 text-teal-600"></i>
-                <span>Model Extra Trees (150 Pohon)</span>
+                <span>Weighted Soft Voting (SVM:2, ET:2, GB:1)</span>
               </span>
             </div>
           </div>
@@ -431,7 +431,7 @@
         textClass: 'text-rose-950',
         confClass: 'text-rose-700',
         barGradient: 'bg-gradient-to-r from-rose-600 via-red-500 to-orange-400',
-        summary: 'Susunan sepatu acak, kemiringan sudut tidak beraturan, atau letak pasangan terpisah. Variasi histogram orientasi gradien (HOG) yang menyebar dan ketidakteraturan kontur mencirikan kondisi Penataan Berantakan.'
+        summary: 'Susunan sepatu acak, kemiringan sudut tidak beraturan, atau letak pasangan terpisah. Variasi sebaran spasial dan ketidakteraturan kontur mencirikan kondisi Penataan Berantakan.'
       }
     };
 
@@ -520,21 +520,22 @@
     }
 
     function handleImageFile(file) {
-      const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
-      if (!validTypes.includes(file.type)) {
-        showToast('Format tidak didukung. Gunakan JPG, PNG, atau WEBP.', 'error');
-        return;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        showToast('Ukuran foto terlalu besar (maksimal 5 MB).', 'error');
+      const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/bmp', 'image/jpg'];
+      const ext = file.name ? file.name.split('.').pop().toLowerCase() : '';
+      const validExts = ['jpg', 'jpeg', 'png', 'webp', 'bmp'];
+
+      if (!validTypes.includes(file.type) && !validExts.includes(ext)) {
+        showToast('Format tidak didukung. Gunakan format JPG, PNG, WEBP, atau BMP.', 'error');
         return;
       }
 
       appState.currentImageFile = file;
       const reader = new FileReader();
       reader.onload = (e) => {
-        const sizeKB = Math.round(file.size / 1024);
-        setPreviewImage(e.target.result, file.name, `(${sizeKB} KB)`, null);
+        const sizeFormatted = file.size >= 1024 * 1024 
+          ? (file.size / (1024 * 1024)).toFixed(1) + ' MB'
+          : Math.round(file.size / 1024) + ' KB';
+        setPreviewImage(e.target.result, file.name, `(${sizeFormatted})`, null);
       };
       reader.readAsDataURL(file);
     }
@@ -765,7 +766,7 @@
 
       btn.disabled = isLoading;
       if (isLoading) {
-        btnText.textContent = 'Mengekstrak 48 Fitur & Mengklasifikasi...';
+        btnText.textContent = 'Mengekstrak 38 Fitur & Mengklasifikasi...';
         btnIcon.setAttribute('data-lucide', 'loader-2');
         btnIcon.classList.add('animate-spin');
         setResultPanelState('loading');

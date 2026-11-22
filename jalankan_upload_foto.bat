@@ -4,7 +4,7 @@ color 0a
 cls
 echo ===============================================================================
 echo        KLASIFIKASI PENATAAN SEPATU AI (RAPI VS BERANTAKAN)
-echo               Extra Trees Classifier - 48 Fitur Multimodal
+echo        Weighted Soft Voting (SVM:2, ET:2, GB:1) - 38 Fitur Multimodal
 echo ===============================================================================
 echo.
 echo  Membuka antarmuka web modern di browser Anda...

@@ -1,9 +1,9 @@
-        @echo off
-title Klasifikasi Camo Studio (Kamera HP) - Extra Trees Classifier
+@echo off
+title Klasifikasi Camo Studio (Kamera HP) - Weighted Soft Voting (SVM:2, ET:2, GB:1)
 color 0A
 echo ==============================================================================
 echo    KLASIFIKASI CITRA PENATAAN SEPATU DENGAN KAMERA HP (CAMO STUDIO)
-echo    METODE: EXTRA TREES CLASSIFIER (150 POHON - AKURASI 92.33%%)
+echo    METODE: WEIGHTED SOFT VOTING (SVM:2, ET:2, GB:1) - 38 FITUR (AKURASI 93.00%%)
 echo ==============================================================================
 echo.
 echo Pastikan aplikasi Camo Studio di laptop & HP Anda sudah aktif dan terhubung.

@@ -32,17 +32,24 @@ from scipy.stats import skew
 from skimage.feature import graycomatrix, graycoprops
 
 # ==============================================================================
-# 1. MEMUAT BUNDLE MODEL EXTRA TREES CLASSIFIER
+# 1. MEMUAT BUNDLE MODEL WEIGHTED SOFT VOTING
 # ==============================================================================
-def load_extratrees_bundle(bundle_path='model_extratrees_penataan_sepatu.pkl'):
+def load_extratrees_bundle(bundle_path='model_terbaik_penataan_sepatu.pkl'):
     if not os.path.exists(bundle_path):
-        print(f"[!] Error: File '{bundle_path}' tidak ditemukan.")
-        sys.exit(1)
+        if os.path.exists('model_extratrees_penataan_sepatu.pkl'):
+            bundle_path = 'model_extratrees_penataan_sepatu.pkl'
+        else:
+            print(f"[!] Error: File '{bundle_path}' tidak ditemukan.")
+            sys.exit(1)
         
-    print(f"[+] Memuat model Extra Trees dari '{bundle_path}'...")
+    print(f"[+] Memuat model klasifikasi dari '{bundle_path}'...")
     bundle = joblib.load(bundle_path)
-    print(f"[+] Metode Aktif : {bundle.get('method_name', 'Extra Trees Classifier')}")
-    print(f"[+] Akurasi CV   : {bundle.get('accuracy_cv', 0):.2%} | ROC AUC: {bundle.get('roc_auc', 0):.4f}")
+    meta = bundle.get('metadata', {})
+    name = meta.get('nama_model', bundle.get('method_name', 'Weighted Soft Voting (SVM:2, ET:2, GB:1)'))
+    acc = bundle.get('accuracy', bundle.get('accuracy_cv', 0.9267))
+    auc = bundle.get('roc_auc', 0.9663)
+    print(f"[+] Metode Aktif : {name}")
+    print(f"[+] Akurasi CV   : {acc:.2%} | ROC AUC: {auc:.4f}")
     return bundle
 
 # ==============================================================================
@@ -95,16 +102,7 @@ def extract_48_features(img_bgr, kmeans_bovw, fitur_cols):
     fitur_dict['hu_moment_1'] = float(-np.sign(hu[0]) * np.log10(abs(hu[0]) + 1e-15))
     fitur_dict['hu_moment_2'] = float(-np.sign(hu[1]) * np.log10(abs(hu[1]) + 1e-15))
     
-    # 5. 10 Fitur HOG
-    ang = cv2.cartToPolar(sobelx, sobely, angleInDegrees=True)[1] % 180.0
-    h_hist, _ = np.histogram(ang, bins=np.linspace(0, 180, 9), weights=sobel_mag)
-    h_norm = h_hist / (np.sum(h_hist) + 1e-15)
-    fitur_dict['hog_entropy'] = float(-np.sum(h_norm * np.log2(h_norm + 1e-15)))
-    fitur_dict['hog_ortho_ratio'] = float((h_norm[0] + h_norm[3] + h_norm[7]) / (np.sum(h_norm) + 1e-15))
-    for b in range(8):
-        fitur_dict[f'hog_bin_{b}'] = float(h_norm[b])
-        
-    # 6. 14 Fitur SIFT & BoVW
+    # 5. 14 Fitur SIFT & BoVW (Fitur HOG telah ditiadakan)
     sift = cv2.SIFT_create()
     kp, des = sift.detectAndCompute(img_res, None)
     if kp is not None and len(kp) > 0:
@@ -165,7 +163,7 @@ def run_camo_app(default_cam_idx=None):
     scaler = bundle['scaler']
     kmeans_bovw = bundle['kmeans_bovw']
     fitur_cols = bundle['fitur_cols']
-    optimal_th = bundle.get('optimal_threshold', 0.48)
+    optimal_th = bundle.get('optimal_threshold', 0.57)
     
     print("\n[+] Mendeteksi kamera pada sistem...")
     available_cams = find_available_cameras()

@@ -26,9 +26,9 @@ from scipy.stats import skew
 from skimage.feature import graycomatrix, graycoprops
 
 # ==============================================================================
-# 1. MEMUAT BUNDLE MODEL EXTRA TREES
+# 1. MEMUAT BUNDLE MODEL WEIGHTED SOFT VOTING
 # ==============================================================================
-BUNDLE_PATH = 'model_extratrees_penataan_sepatu.pkl'
+BUNDLE_PATH = 'model_terbaik_penataan_sepatu.pkl' if os.path.exists('model_terbaik_penataan_sepatu.pkl') else 'model_extratrees_penataan_sepatu.pkl'
 
 def load_bundle():
     if not os.path.exists(BUNDLE_PATH):
@@ -48,9 +48,9 @@ model = bundle['model']
 scaler = bundle['scaler']
 kmeans_bovw = bundle['kmeans_bovw']
 fitur_cols = bundle['fitur_cols']
-optimal_th = bundle.get('optimal_threshold', 0.48)
-acc_cv = bundle.get('accuracy_cv', 0.9233)
-roc_auc = bundle.get('roc_auc', 0.9665)
+optimal_th = bundle.get('optimal_threshold', 0.57)
+acc_cv = bundle.get('accuracy', bundle.get('accuracy_cv', 0.9267))
+roc_auc = bundle.get('roc_auc', 0.9663)
 
 # ==============================================================================
 # 2. EKSTRAKSI 48 FITUR MULTIMODAL
@@ -102,16 +102,7 @@ def extract_48_features(img_bgr):
     fitur_dict['hu_moment_1'] = float(-np.sign(hu[0]) * np.log10(abs(hu[0]) + 1e-15))
     fitur_dict['hu_moment_2'] = float(-np.sign(hu[1]) * np.log10(abs(hu[1]) + 1e-15))
     
-    # 5. 10 Fitur HOG
-    ang = cv2.cartToPolar(sobelx, sobely, angleInDegrees=True)[1] % 180.0
-    h_hist, _ = np.histogram(ang, bins=np.linspace(0, 180, 9), weights=sobel_mag)
-    h_norm = h_hist / (np.sum(h_hist) + 1e-15)
-    fitur_dict['hog_entropy'] = float(-np.sum(h_norm * np.log2(h_norm + 1e-15)))
-    fitur_dict['hog_ortho_ratio'] = float((h_norm[0] + h_norm[3] + h_norm[7]) / (np.sum(h_norm) + 1e-15))
-    for b in range(8):
-        fitur_dict[f'hog_bin_{b}'] = float(h_norm[b])
-        
-    # 6. 14 Fitur SIFT & BoVW
+    # 5. 14 Fitur SIFT & BoVW (Fitur HOG telah ditiadakan)
     sift = cv2.SIFT_create()
     kp, des = sift.detectAndCompute(img_res, None)
     if kp is not None and len(kp) > 0:
