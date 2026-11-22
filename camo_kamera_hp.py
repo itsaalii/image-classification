@@ -161,7 +161,7 @@ def run_camo_app(default_cam_idx=None):
     
     model = bundle['model']
     scaler = bundle['scaler']
-    kmeans_bovw = bundle['kmeans_bovw']
+    kmeans_bovw = bundle.get('kmeans_bovw', None)
     fitur_cols = bundle['fitur_cols']
     optimal_th = bundle.get('optimal_threshold', 0.57)
     

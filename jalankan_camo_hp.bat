@@ -9,5 +9,5 @@ echo.
 echo Pastikan aplikasi Camo Studio di laptop & HP Anda sudah aktif dan terhubung.
 echo.
 echo Menjalankan aplikasi kamera Camo Studio...
-python camo_kamera_hp.py
+py -3.13 camo_kamera_hp.py 2>nul || python camo_kamera_hp.py
 pause
