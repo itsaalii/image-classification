@@ -1,2 +1,4 @@
 /Citra/
 /grayscale/
+__pycache__/
+*.zip
