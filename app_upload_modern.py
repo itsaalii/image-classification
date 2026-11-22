@@ -103,36 +103,37 @@ def extract_38_features(img_bgr):
     fitur_dict['hu_moment_1'] = float(-np.sign(hu[0]) * np.log10(abs(hu[0]) + 1e-15))
     fitur_dict['hu_moment_2'] = float(-np.sign(hu[1]) * np.log10(abs(hu[1]) + 1e-15))
     
-    # 5. 14 Fitur SIFT & BoVW
-    sift = cv2.SIFT_create()
-    kp, des = sift.detectAndCompute(img_res, None)
-    if kp is not None and len(kp) > 0:
-        resps = [k.response for k in kp]
-        sizes = [k.size for k in kp]
-        xs = [k.pt[0] for k in kp]
-        ys = [k.pt[1] for k in kp]
-        fitur_dict['sift_num_keypoints'] = float(len(kp))
-        fitur_dict['sift_response_mean'] = float(np.mean(resps))
-        fitur_dict['sift_response_std'] = float(np.std(resps))
-        fitur_dict['sift_size_mean'] = float(np.mean(sizes))
-        fitur_dict['sift_size_std'] = float(np.std(sizes))
-        fitur_dict['sift_spatial_spread'] = float(np.std(xs) * np.std(ys))
-    else:
-        fitur_dict['sift_num_keypoints'] = 0.0
-        fitur_dict['sift_response_mean'] = 0.0
-        fitur_dict['sift_response_std'] = 0.0
-        fitur_dict['sift_size_mean'] = 0.0
-        fitur_dict['sift_size_std'] = 0.0
-        fitur_dict['sift_spatial_spread'] = 0.0
-        
-    bovw_hist = np.zeros(8, dtype=np.float32)
-    if des is not None and len(des) > 0 and kmeans_bovw is not None:
-        preds = kmeans_bovw.predict(des)
-        for p in preds:
-            bovw_hist[p] += 1
-        bovw_hist = bovw_hist / (np.sum(bovw_hist) + 1e-15)
-    for w in range(8):
-        fitur_dict[f'sift_bovw_w{w}'] = float(bovw_hist[w])
+    # 5. 14 Fitur SIFT & BoVW (Diekstrak jika digunakan oleh model)
+    if any('sift' in c for c in fitur_cols):
+        sift = cv2.SIFT_create()
+        kp, des = sift.detectAndCompute(img_res, None)
+        if kp is not None and len(kp) > 0:
+            resps = [k.response for k in kp]
+            sizes = [k.size for k in kp]
+            xs = [k.pt[0] for k in kp]
+            ys = [k.pt[1] for k in kp]
+            fitur_dict['sift_num_keypoints'] = float(len(kp))
+            fitur_dict['sift_response_mean'] = float(np.mean(resps))
+            fitur_dict['sift_response_std'] = float(np.std(resps))
+            fitur_dict['sift_size_mean'] = float(np.mean(sizes))
+            fitur_dict['sift_size_std'] = float(np.std(sizes))
+            fitur_dict['sift_spatial_spread'] = float(np.std(xs) * np.std(ys))
+        else:
+            fitur_dict['sift_num_keypoints'] = 0.0
+            fitur_dict['sift_response_mean'] = 0.0
+            fitur_dict['sift_response_std'] = 0.0
+            fitur_dict['sift_size_mean'] = 0.0
+            fitur_dict['sift_size_std'] = 0.0
+            fitur_dict['sift_spatial_spread'] = 0.0
+            
+        bovw_hist = np.zeros(8, dtype=np.float32)
+        if des is not None and len(des) > 0 and kmeans_bovw is not None:
+            preds = kmeans_bovw.predict(des)
+            for p in preds:
+                bovw_hist[p] += 1
+            bovw_hist = bovw_hist / (np.sum(bovw_hist) + 1e-15)
+        for w in range(8):
+            fitur_dict[f'sift_bovw_w{w}'] = float(bovw_hist[w])
         
     x_vec = np.array([[fitur_dict[c] for c in fitur_cols]])
     return x_vec, fitur_dict
