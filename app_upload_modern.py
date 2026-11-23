@@ -1,7 +1,7 @@
 """
 ================================================================================
 SHOESENSE AI - REACT 19 + TYPESCRIPT + VITE + TAILWIND CSS DASHBOARD SERVER
-METODE: WEIGHTED SOFT VOTING ENSEMBLE (38 FITUR MULTIMODAL HANDCRAFTED)
+METODE: WEIGHTED SOFT VOTING ENSEMBLE (24 FITUR HANDCRAFTED: WARNA, TEKSTUR, TEPI, BENTUK)
 ================================================================================
 Backend server modern berbasis Flask:
 - Melayani REST API (/predict, /api/info, /api/health) dengan dukungan CORS penuh.
@@ -40,24 +40,27 @@ bundle = joblib.load(BUNDLE_PATH)
 
 model = bundle['model']
 scaler = bundle['scaler']
-kmeans_bovw = bundle.get('kmeans_bovw', None)
 fitur_cols = bundle['fitur_cols']
-optimal_th = float(bundle.get('optimal_threshold', 0.61))
-acc_cv = float(bundle.get('accuracy', bundle.get('accuracy_cv', 0.9267)))
-roc_auc = float(bundle.get('roc_auc', 0.9663))
+optimal_th = float(bundle.get('optimal_threshold', 0.44))
+acc_cv = float(bundle.get('accuracy', bundle.get('accuracy_cv', 0.9783)))
+roc_auc = float(bundle.get('roc_auc', 0.9976))
 
-print(f"[+] Model Aktif   : Weighted Soft Voting Ensemble ({len(fitur_cols)} Fitur)")
+print(f"[+] Model Aktif   : Weighted Soft Voting Ensemble ({len(fitur_cols)} Fitur Handcrafted)")
+print(f"[+] Komposisi     : 9 Warna RGB + 5 GLCM CLAHE + 4 Tepi Struktural + 6 Bentuk Kontur")
 print(f"[+] Akurasi CV    : {acc_cv:.2%} | ROC AUC: {roc_auc:.4f} | Threshold: {optimal_th:.2f}")
 
 # ==============================================================================
-# 2. EKSTRAKSI 38 FITUR MULTIMODAL LENGKAP
+# 2. EKSTRAKSI 24 FITUR HANDCRAFTED (WARNA, TEKSTUR GLCM, TEPI, BENTUK)
+#    (100% SAMA PERSIS DENGAN PIPELINE TRAINING DI klasifikasi.ipynb)
 # ==============================================================================
-def extract_38_features(img_bgr):
-    img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-    img_gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+def extract_24_features(img_bgr):
+    # Standardisasi resolusi input menjadi 512x512 piksel (konsisten dengan dataset training)
+    img_512 = cv2.resize(img_bgr, (512, 512))
+    img_rgb = cv2.cvtColor(img_512, cv2.COLOR_BGR2RGB)
+    img_gray = cv2.cvtColor(img_512, cv2.COLOR_BGR2GRAY)
     img_res = cv2.resize(img_gray, (256, 256))
     
-    # 1. 9 Fitur RGB
+    # 1. 9 Fitur Warna RGB (Mean, Std, Skewness)
     r, g, b = img_rgb[:, :, 0], img_rgb[:, :, 1], img_rgb[:, :, 2]
     fitur_dict = {
         'mean_r': float(np.mean(r)), 'mean_g': float(np.mean(g)), 'mean_b': float(np.mean(b)),
@@ -65,7 +68,7 @@ def extract_38_features(img_bgr):
         'skew_r': float(skew(r.ravel())), 'skew_g': float(skew(g.ravel())), 'skew_b': float(skew(b.ravel()))
     }
     
-    # 2. 5 Fitur Tekstur GLCM CLAHE
+    # 2. 5 Fitur Tekstur GLCM dengan Prapemrosesan CLAHE (256x256)
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     img_clahe = clahe.apply(img_res)
     glcm = graycomatrix(img_clahe, distances=[1], angles=[0], levels=256, symmetric=True, normed=True)
@@ -76,7 +79,7 @@ def extract_38_features(img_bgr):
     fitur_dict['glcm_energy'] = float(graycoprops(glcm, 'energy')[0, 0])
     fitur_dict['glcm_homogeneity'] = float(graycoprops(glcm, 'homogeneity')[0, 0])
     
-    # 3. 4 Fitur Tepi Struktural
+    # 3. 4 Fitur Tepi Struktural (Canny, Sobel, Laplacian)
     canny = cv2.Canny(img_clahe, 50, 150)
     fitur_dict['edge_density'] = float(np.mean(canny > 0))
     sobelx = cv2.Sobel(img_clahe, cv2.CV_64F, 1, 0, ksize=3)
@@ -87,7 +90,7 @@ def extract_38_features(img_bgr):
     laplacian = cv2.Laplacian(img_clahe, cv2.CV_64F)
     fitur_dict['laplacian_var'] = float(np.var(laplacian))
     
-    # 4. 6 Fitur Shape Kontur & Hu Moments
+    # 4. 6 Fitur Geometri Bentuk (Kontur & Invarian Momen Hu)
     contours, _ = cv2.findContours(canny, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     fitur_dict['num_contours'] = float(len(contours))
     areas = [cv2.contourArea(c) for c in contours if cv2.contourArea(c) > 10]
@@ -103,40 +106,13 @@ def extract_38_features(img_bgr):
     fitur_dict['hu_moment_1'] = float(-np.sign(hu[0]) * np.log10(abs(hu[0]) + 1e-15))
     fitur_dict['hu_moment_2'] = float(-np.sign(hu[1]) * np.log10(abs(hu[1]) + 1e-15))
     
-    # 5. 14 Fitur SIFT & BoVW (Diekstrak jika digunakan oleh model)
-    if any('sift' in c for c in fitur_cols):
-        sift = cv2.SIFT_create()
-        kp, des = sift.detectAndCompute(img_res, None)
-        if kp is not None and len(kp) > 0:
-            resps = [k.response for k in kp]
-            sizes = [k.size for k in kp]
-            xs = [k.pt[0] for k in kp]
-            ys = [k.pt[1] for k in kp]
-            fitur_dict['sift_num_keypoints'] = float(len(kp))
-            fitur_dict['sift_response_mean'] = float(np.mean(resps))
-            fitur_dict['sift_response_std'] = float(np.std(resps))
-            fitur_dict['sift_size_mean'] = float(np.mean(sizes))
-            fitur_dict['sift_size_std'] = float(np.std(sizes))
-            fitur_dict['sift_spatial_spread'] = float(np.std(xs) * np.std(ys))
-        else:
-            fitur_dict['sift_num_keypoints'] = 0.0
-            fitur_dict['sift_response_mean'] = 0.0
-            fitur_dict['sift_response_std'] = 0.0
-            fitur_dict['sift_size_mean'] = 0.0
-            fitur_dict['sift_size_std'] = 0.0
-            fitur_dict['sift_spatial_spread'] = 0.0
-            
-        bovw_hist = np.zeros(8, dtype=np.float32)
-        if des is not None and len(des) > 0 and kmeans_bovw is not None:
-            preds = kmeans_bovw.predict(des)
-            for p in preds:
-                bovw_hist[p] += 1
-            bovw_hist = bovw_hist / (np.sum(bovw_hist) + 1e-15)
-        for w in range(8):
-            fitur_dict[f'sift_bovw_w{w}'] = float(bovw_hist[w])
-        
+    # Menyusun vektor fitur persis sesuai urutan kolom pada model
     x_vec = np.array([[fitur_dict[c] for c in fitur_cols]])
     return x_vec, fitur_dict
+
+# Alias kompatibilitas
+extract_38_features = extract_24_features
+extract_features = extract_24_features
 
 # ==============================================================================
 # 3. KONFIGURASI FLASK SERVER & STATIC ROUTING (REACT 19 SPA)
@@ -172,8 +148,7 @@ def model_info():
             'rgb': 9,
             'glcm': 5,
             'edge': 4,
-            'shape': 6,
-            'sift': 14
+            'shape': 6
         }
     })
 
@@ -207,8 +182,8 @@ def predict():
         return jsonify({'error': 'Citra tidak ditemukan atau format tidak didukung (harus JPG/PNG/WEBP)'}), 400
 
     try:
-        # Ekstraksi 38 Fitur Multimodal
-        x_vec, fitur_dict = extract_38_features(img_bgr)
+        # Ekstraksi 24 Fitur Handcrafted (Warna RGB, GLCM CLAHE, Tepi Struktural, Bentuk Kontur)
+        x_vec, fitur_dict = extract_24_features(img_bgr)
         x_scaled = scaler.transform(x_vec)
 
         # Prediksi Probabilitas Ansambel

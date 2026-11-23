@@ -93,9 +93,9 @@ Ringkasan: ${result.summary || (isRapi ? 'Susunan sepatu rapi berpasangan sejaja
               <div className="absolute inset-0 rounded-2xl border-4 border-emerald-600 border-t-lime-400 animate-spin"></div>
               <BrainCircuit className="w-7 h-7 text-emerald-600 animate-pulse" />
             </div>
-            <h3 className="text-sm font-bold text-emerald-950">Menganalisis 38 Fitur Multimodal...</h3>
+            <h3 className="text-sm font-bold text-emerald-950">Menganalisis 24 Fitur Handcrafted...</h3>
             <p className="text-xs text-emerald-800/70 mt-1">
-              Mengekstrak GLCM CLAHE, Tepi Canny, dan SIFT BoVW
+              Mengekstrak 9 Warna RGB, 5 GLCM CLAHE, 4 Tepi Struktural, dan 6 Bentuk Kontur
             </p>
             <div className="w-52 h-2 bg-emerald-100 rounded-full overflow-hidden mt-4 border border-emerald-200/70">
               <div className="h-full bg-gradient-to-r from-emerald-600 via-green-500 to-lime-400 rounded-full animate-pulse w-3/4"></div>
@@ -254,9 +254,9 @@ Ringkasan: ${result.summary || (isRapi ? 'Susunan sepatu rapi berpasangan sejaja
                   </strong>
                 </div>
                 <div className="p-2.5 rounded-xl bg-emerald-50/50 border border-emerald-200/60">
-                  <span className="text-emerald-800/60 block">SIFT Keypoints</span>
+                  <span className="text-emerald-800/60 block">Num Contours</span>
                   <strong className="text-emerald-950 font-bold">
-                    {result.features['sift_num_keypoints']?.toFixed(0) ?? '-'} pts
+                    {result.features['num_contours']?.toFixed(0) ?? '-'} kontur
                   </strong>
                 </div>
                 <div className="p-2.5 rounded-xl bg-emerald-50/50 border border-emerald-200/60">

@@ -25,7 +25,7 @@ export const Header: React.FC<HeaderProps> = ({ currentMode, onSwitchMode, accur
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
               </span>
-              Weighted Soft Voting (38 Fitur) &bull; Akurasi CV {(accuracy * 100).toFixed(2)}%
+              Weighted Soft Voting (24 Fitur) &bull; Akurasi CV {(accuracy * 100).toFixed(2)}%
             </span>
           </div>
           <p className="text-xs sm:text-sm text-emerald-900/65 mt-0.5">

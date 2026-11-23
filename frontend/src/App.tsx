@@ -41,12 +41,12 @@ export function App() {
         // Fallback default info
         setModelInfo({
           nama_model: 'Weighted Soft Voting Ensemble (SVM:2, ET:2, GB:1)',
-          akurasi: 0.93,
-          roc_auc: 0.9679,
-          threshold: 0.61,
-          total_fitur: 38,
+          akurasi: 0.9783,
+          roc_auc: 0.9976,
+          threshold: 0.44,
+          total_fitur: 24,
           fitur_cols: [],
-          kategori_fitur: { rgb: 9, glcm: 5, edge: 4, shape: 6, sift: 14 },
+          kategori_fitur: { rgb: 9, glcm: 5, edge: 4, shape: 6 },
         });
       });
   }, []);

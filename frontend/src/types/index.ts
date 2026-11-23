@@ -27,7 +27,7 @@ export interface ModelInfo {
     glcm: number;
     edge: number;
     shape: number;
-    sift: number;
+    sift?: number;
   };
 }
 

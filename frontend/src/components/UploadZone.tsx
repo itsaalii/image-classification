@@ -119,7 +119,7 @@ export const UploadZone: React.FC<UploadZoneProps> = ({
             </p>
           </div>
           <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-gradient-to-r from-emerald-100 to-lime-100/80 text-emerald-800 border border-emerald-200/80 shrink-0">
-            Weighted Soft Voting (38 Fitur)
+            Weighted Soft Voting (24 Fitur)
           </span>
         </div>
 

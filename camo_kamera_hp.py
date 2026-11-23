@@ -1,7 +1,7 @@
 """
 ================================================================================
 KLASIFIKASI CITRA PENATAAN SEPATU MENGGUNAKAN CAMO STUDIO (KAMERA HP)
-METODE: EXTRA TREES CLASSIFIER (48 FITUR MULTIMODAL)
+METODE: WEIGHTED SOFT VOTING ENSEMBLE (24 FITUR HANDCRAFTED: WARNA, TEKSTUR, TEPI, BENTUK)
 FITUR: LIVE REAL-TIME PROBABILITY + TEMPORAL SMOOTHING + SNAPSHOT [SPACE]
 ================================================================================
 Aplikasi ini membaca stream langsung dari kamera HP melalui Camo Studio (Virtual Camera)
@@ -46,22 +46,27 @@ def load_extratrees_bundle(bundle_path='model_terbaik_penataan_sepatu.pkl'):
     bundle = joblib.load(bundle_path)
     meta = bundle.get('metadata', {})
     name = meta.get('nama_model', bundle.get('method_name', 'Weighted Soft Voting (SVM:2, ET:2, GB:1)'))
-    acc = bundle.get('accuracy', bundle.get('accuracy_cv', 0.9267))
-    auc = bundle.get('roc_auc', 0.9663)
+    acc = bundle.get('accuracy', bundle.get('accuracy_cv', 0.9783))
+    auc = bundle.get('roc_auc', 0.9976)
+    cols = bundle.get('fitur_cols', [])
+    th = bundle.get('optimal_threshold', 0.44)
     print(f"[+] Metode Aktif : {name}")
-    print(f"[+] Akurasi CV   : {acc:.2%} | ROC AUC: {auc:.4f}")
+    print(f"[+] Total Fitur  : {len(cols)} Fitur Handcrafted (9 Warna RGB, 5 GLCM CLAHE, 4 Tepi, 6 Bentuk)")
+    print(f"[+] Akurasi CV   : {acc:.2%} | ROC AUC: {auc:.4f} | Threshold: {th:.2f}")
     return bundle
 
 # ==============================================================================
-# 2. EKSTRAKSI 48 FITUR MULTIMODAL LENGKAP
+# 2. EKSTRAKSI 24 FITUR HANDCRAFTED (WARNA, TEKSTUR GLCM, TEPI, BENTUK)
+#    (100% SAMA PERSIS DENGAN PIPELINE TRAINING DI klasifikasi.ipynb)
 # ==============================================================================
-def extract_48_features(img_bgr, kmeans_bovw, fitur_cols):
+def extract_24_features(img_bgr, fitur_cols=None, kmeans_bovw=None):
+    # Standardisasi resolusi input menjadi 512x512 piksel (konsisten dengan dataset training)
     img_512 = cv2.resize(img_bgr, (512, 512))
     img_rgb = cv2.cvtColor(img_512, cv2.COLOR_BGR2RGB)
     img_gray = cv2.cvtColor(img_512, cv2.COLOR_BGR2GRAY)
     img_res = cv2.resize(img_gray, (256, 256))
     
-    # 1. 9 Fitur RGB
+    # 1. 9 Fitur RGB (Mean, Std, Skewness)
     r, g, b = img_rgb[:, :, 0], img_rgb[:, :, 1], img_rgb[:, :, 2]
     fitur_dict = {
         'mean_r': float(np.mean(r)), 'mean_g': float(np.mean(g)), 'mean_b': float(np.mean(b)),
@@ -69,7 +74,7 @@ def extract_48_features(img_bgr, kmeans_bovw, fitur_cols):
         'skew_r': float(skew(r.ravel())), 'skew_g': float(skew(g.ravel())), 'skew_b': float(skew(b.ravel()))
     }
     
-    # 2. 5 Fitur Tekstur GLCM CLAHE
+    # 2. 5 Fitur Tekstur GLCM CLAHE (256x256)
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     img_clahe = clahe.apply(img_res)
     glcm = graycomatrix(img_clahe, distances=[1], angles=[0], levels=256, symmetric=True, normed=True)
@@ -80,7 +85,7 @@ def extract_48_features(img_bgr, kmeans_bovw, fitur_cols):
     fitur_dict['glcm_energy'] = float(graycoprops(glcm, 'energy')[0, 0])
     fitur_dict['glcm_homogeneity'] = float(graycoprops(glcm, 'homogeneity')[0, 0])
     
-    # 3. 4 Fitur Edge
+    # 3. 4 Fitur Tepi Struktural (Canny, Sobel, Laplacian)
     canny = cv2.Canny(img_clahe, 50, 150)
     fitur_dict['edge_density'] = float(np.mean(canny > 0))
     sobelx = cv2.Sobel(img_clahe, cv2.CV_64F, 1, 0, ksize=3)
@@ -91,7 +96,7 @@ def extract_48_features(img_bgr, kmeans_bovw, fitur_cols):
     laplacian = cv2.Laplacian(img_clahe, cv2.CV_64F)
     fitur_dict['laplacian_var'] = float(np.var(laplacian))
     
-    # 4. 6 Fitur Shape Kontur
+    # 4. 6 Fitur Shape Kontur & Hu Moments
     contours, _ = cv2.findContours(canny, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     fitur_dict['num_contours'] = len(contours)
     areas = [cv2.contourArea(c) for c in contours if cv2.contourArea(c) > 10]
@@ -103,40 +108,14 @@ def extract_48_features(img_bgr, kmeans_bovw, fitur_cols):
     fitur_dict['hu_moment_1'] = float(-np.sign(hu[0]) * np.log10(abs(hu[0]) + 1e-15))
     fitur_dict['hu_moment_2'] = float(-np.sign(hu[1]) * np.log10(abs(hu[1]) + 1e-15))
     
-    # 5. 14 Fitur SIFT & BoVW (Diekstrak hanya jika ada di fitur_cols model)
-    if any('sift' in c for c in fitur_cols):
-        sift = cv2.SIFT_create()
-        kp, des = sift.detectAndCompute(img_res, None)
-        if kp is not None and len(kp) > 0:
-            resps = [k.response for k in kp]
-            sizes = [k.size for k in kp]
-            xs = [k.pt[0] for k in kp]
-            ys = [k.pt[1] for k in kp]
-            fitur_dict['sift_num_keypoints'] = float(len(kp))
-            fitur_dict['sift_response_mean'] = float(np.mean(resps))
-            fitur_dict['sift_response_std'] = float(np.std(resps))
-            fitur_dict['sift_size_mean'] = float(np.mean(sizes))
-            fitur_dict['sift_size_std'] = float(np.std(sizes))
-            fitur_dict['sift_spatial_spread'] = float(np.std(xs) * np.std(ys))
-        else:
-            fitur_dict['sift_num_keypoints'] = 0.0
-            fitur_dict['sift_response_mean'] = 0.0
-            fitur_dict['sift_response_std'] = 0.0
-            fitur_dict['sift_size_mean'] = 0.0
-            fitur_dict['sift_size_std'] = 0.0
-            fitur_dict['sift_spatial_spread'] = 0.0
-            
-        bovw_hist = np.zeros(8, dtype=np.float32)
-        if des is not None and len(des) > 0 and kmeans_bovw is not None:
-            preds = kmeans_bovw.predict(des)
-            for p in preds:
-                bovw_hist[p] += 1
-            bovw_hist = bovw_hist / (np.sum(bovw_hist) + 1e-15)
-        for w in range(8):
-            fitur_dict[f'sift_bovw_w{w}'] = float(bovw_hist[w])
-        
-    x_vec = np.array([[fitur_dict[c] for c in fitur_cols]])
+    if fitur_cols is not None:
+        x_vec = np.array([[fitur_dict[c] for c in fitur_cols]])
+    else:
+        x_vec = np.array([list(fitur_dict.values())])
     return x_vec, fitur_dict
+
+# Alias kompatibilitas
+extract_48_features = extract_24_features
 
 # ==============================================================================
 # 3. DETEKSI KAMERA SISTEM
@@ -227,7 +206,8 @@ def run_camo_app(default_cam_idx=None):
             if frame_to_process is not None:
                 t0 = time.time()
                 try:
-                    x_vec, _ = extract_48_features(frame_to_process, kmeans_bovw, fitur_cols)
+                    # Ekstraksi 24 Fitur Handcrafted (Warna, Tekstur GLCM, Tepi, Bentuk)
+                    x_vec, _ = extract_24_features(frame_to_process, fitur_cols)
                     x_scaled = scaler.transform(x_vec)
                     raw_prob = model.predict_proba(x_scaled)[0, 1]
                     dur = time.time() - t0
